@@ -31,6 +31,12 @@ const int btn1Pin = 2;
 byte button1State = LOW;
 unsigned long lastButtonTime = 0;
 
+//menue interupt
+volatile bool menuRequest = false;
+const int menuPin = 2;
+//menue vars
+int menuLevel = 0;
+
 //leds
 #define LED_PIN     6
 #define COLOR_ORDER RGB
@@ -51,11 +57,11 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisDisplay = 0;
 
 //animation
-int numberOfFrames = 20;//----------
-int frameNumber = 1;
-int numberOfLoops = 0;
-bool frameDisplayed = true;
-bool frameBuffered = false;
+//int numberOfFrames = 20;//----------
+//int frameNumber = 1;
+//int numberOfLoops = 0;
+//bool frameDisplayed = true;
+//bool frameBuffered = false;
 
 
 //program vars
@@ -71,11 +77,16 @@ void runLeds();
 void buildFrame();
 void advanceProgram();
 void setBrightness();
+void menuCheck();
+void menuInterrupt();
+void ledTest();
+void play();
 
 
 void setup() {
   delay(1000); // sanity delay
   Serial.begin(9600);
+  currentMillis = millis();
 
   //SD card
   Serial.print("Initializing SD card...");
@@ -86,7 +97,7 @@ void setup() {
   Serial.println("initialization done.");
 
   //open file
-  myFile = SD.open("triangle.txt");
+  myFile = SD.open("pac.txt");
   if(myFile){
     Serial.println("opened file");
     Serial.println(myFile.name());
@@ -97,6 +108,8 @@ void setup() {
 
   //buttons
   //pinMode(btn1Pin, INPUT);
+  pinMode(menuPin, INPUT);
+  attachInterrupt(digitalPinToInterrupt(menuPin), menuInterrupt, RISING);
 
   //leds
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
@@ -106,27 +119,26 @@ void setup() {
   
 
   //start lcd
-  //lcd.init();
-  //lcd.clear();         
-  //lcd.backlight();    // Make sure backlight is on
+  lcd.init();
+  lcd.clear();         
+  lcd.backlight();    // Make sure backlight is on
 
   // Print a message on both lines of the LCD.
-  //lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-  //lcd.print("   Program");
-  //lcd.setCursor(0,1);   //Move cursor to character 2 on line 1
-  //lcd.print("    Start");
-  //delay(3000);
-  //lcd.clear();
+  lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+  lcd.print("Mega");
+  lcd.setCursor(0,1);   //Move cursor to character 2 on line 1
+  lcd.print("Matrix");
+  delay(3000);
+  lcd.clear();
+
+  //RGB test
+  ledTest();
+
+
   //displayProgram();
 
-
-  for(int i = 0; i < numberOfLeds; i++){
-    leds[i] = 0x000000;
-  }
-  FastLED.show();
-  Serial.println("clear");
-  delay(1000);
-
+  
+  
 }
 
 void loop(){
@@ -135,10 +147,22 @@ void loop(){
 
   //Serial.println(programNumber);
   //checkBtns();
-  buildFrame();
-  runLeds();
+  menuCheck();
+  play();
+
+
+  //buildFrame();
+  //runLeds();
   //advanceProgram();//---------
  
+}
+
+
+void play(){
+
+  
+
+
 }
 
 void setBrightness(){
@@ -228,7 +252,87 @@ void runLeds(){
   
 }
 
+void ledTest(){
+  lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+  lcd.print("RGB Check");
+  delay(2500);
+  lcd.clear();
+  for (int i = 0; i < 1; i++) {
+    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+    lcd.print("Off");
+    for(int i = 0; i < numberOfLeds; i++){
+      leds[i] = 0x000000;
+    }
+    FastLED.show();
+    Serial.println("clear");
+    delay(1000);
+
+    lcd.clear();
+    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+    lcd.print("Red");
+    for(int i = 0; i < numberOfLeds; i++){
+      //fire brick
+      leds[i] = 0xB22222;
+    }
+    FastLED.show();
+    delay(3000);
+
+    lcd.clear();
+    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+    lcd.print("Green");
+    for(int i = 0; i < numberOfLeds; i++){
+      //lime green
+      leds[i] = 0x32CD32;
+    }
+    FastLED.show();
+    delay(3000);
+
+    lcd.clear();
+    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+    lcd.print("Blue");
+    for(int i = 0; i < numberOfLeds; i++){
+      //medium blue
+      leds[i] = 0x0000CD;
+    }
+    FastLED.show();
+    delay(3000);
+
+    lcd.clear();
+    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+    lcd.print("Off");
+    for(int i = 0; i < numberOfLeds; i++){
+      leds[i] = 0x000000;
+    }
+    FastLED.show();
+    Serial.println("clear");
+    delay(3000);
+    lcd.clear();
+  }
+}
+
 void advanceProgram(){//--------
 
   
+}
+
+void menuInterrupt(){
+  menuRequest = true;
+}
+
+void menuCheck(){
+  if(menuRequest == true){
+    Serial.println("menu");
+    
+  // Print a message on LCD.
+  lcd.clear();
+  lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+  lcd.print("Menu");
+  lcd.setCursor(0,1);   //Move cursor to character 2 on line 1
+  lcd.print("");
+  delay(3000);
+  lcd.clear();
+
+
+    menuRequest = false;
+  }
 }
