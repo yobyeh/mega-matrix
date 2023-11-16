@@ -43,6 +43,8 @@ int menuLevel = 0;
 #define CHIPSET     WS2811
 #define NUM_LEDS    500
 const int numberOfLeds = 500;
+#define WIDTH        10
+#define SINGLE_STRIP 50
 #define BRIGHTNESS  150
 CRGB leds[NUM_LEDS];
 int frame = 0;
@@ -57,6 +59,9 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisDisplay = 0;
 
 //animation
+#define FIRE_FRAMES_PER_SECOND 8
+#define COOLING  55
+#define SPARKING 120
 //int numberOfFrames = 20;//----------
 //int frameNumber = 1;
 //int numberOfLoops = 0;
@@ -80,7 +85,9 @@ void setBrightness();
 void menuCheck();
 void menuInterrupt();
 void ledTest();
-void play();
+void playFireFrame();
+void Fire2012(int);
+CRGB myHeatColor();
 
 
 void setup() {
@@ -132,7 +139,7 @@ void setup() {
   lcd.clear();
 
   //RGB test
-  ledTest();
+  //ledTest();
 
 
   //displayProgram();
@@ -148,21 +155,11 @@ void loop(){
   //Serial.println(programNumber);
   //checkBtns();
   menuCheck();
-  play();
-
-
-  //buildFrame();
-  //runLeds();
+  //playFireFrame();
+  buildFrame();
+  runLeds();
   //advanceProgram();//---------
  
-}
-
-
-void play(){
-
-  
-
-
 }
 
 void setBrightness(){
@@ -335,4 +332,93 @@ void menuCheck(){
 
     menuRequest = false;
   }
+}
+
+
+//for fire
+
+void playFireFrame(){
+  // Add entropy to random number generator; we use a lot of it.
+  random16_add_entropy( random());
+  for(int w = 0; w < WIDTH; w++){
+
+    Fire2012(w); // run simulation frame
+
+  }
+
+  
+
+  FastLED.show(); // display this frame
+  delay(1000 / FIRE_FRAMES_PER_SECOND);
+}
+
+void Fire2012(int columnNumber){
+
+// Array of temperature readings at each simulation cell
+  static byte heat[SINGLE_STRIP];
+ 
+  // Step 1.  Cool down every cell a little
+    for( int i = 0; i < SINGLE_STRIP; i++) {
+      heat[i] = qsub8( heat[i],  random8(0, ((COOLING * 10) / SINGLE_STRIP) + 2));
+    }
+  
+    // Step 2.  Heat from each cell drifts 'up' and diffuses a little
+    for(int k = SINGLE_STRIP - 1; k > 2; k--) {
+    heat[k] = (heat[k - 1] + heat[k - 2] + heat[k - 3]) / 3;
+    }
+
+    // Step 3.  Randomly ignite new 'sparks' of heat near the bottom
+    if( random8() < SPARKING ) {
+      int y = random8(7);
+      heat[y] = qadd8( heat[y], random8(160,255) );
+    }
+ 
+    // Step 4.  Map from heat cells to LED colors
+    for( int j = 0; j < SINGLE_STRIP; j++) {
+      int tempIndex;
+      if (columnNumber % 2 == 0) {
+        tempIndex = j + (SINGLE_STRIP * columnNumber);
+      } 
+      else {
+        tempIndex = (SINGLE_STRIP * (columnNumber + 1)) - 1 - j;
+      }
+      leds[tempIndex] = HeatColor( heat[j]);  
+    }
+}
+
+CRGB myHeatColor( uint8_t temperature)
+{
+  CRGB heatcolor;
+  
+  // Scale 'heat' down from 0-255 to 0-191,
+  // which can then be easily divided into three
+  // equal 'thirds' of 64 units each.
+  uint8_t t192 = scale8_video( temperature, 192);
+ 
+  // calculate a value that ramps up from
+  // zero to 255 in each 'third' of the scale.
+  uint8_t heatramp = t192 & 0x3F; // 0..63
+  heatramp <<= 2; // scale up to 0..252
+ 
+  // now figure out which third of the spectrum we're in:
+  if( t192 & 0x80) {
+    // we're in the hottest third
+    heatcolor.r = 255; // full red
+    heatcolor.g = 255; // full green
+    heatcolor.b = heatramp; // ramp up blue
+    
+  } else if( t192 & 0x40 ) {
+    // we're in the middle third
+    heatcolor.r = 255; // full red
+    heatcolor.g = heatramp; // ramp up green
+    heatcolor.b = 0; // no blue
+    
+  } else {
+    // we're in the coolest third
+    heatcolor.r = heatramp; // ramp up red
+    heatcolor.g = 0; // no green
+    heatcolor.b = 0; // no blue
+  }
+  
+  return heatcolor;
 }
