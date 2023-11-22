@@ -19,7 +19,7 @@
 File myFile;
 File root;
 const int chipSelect = 53;
-char buffer1[8];
+char buffer[11];
 
 
 //LCD
@@ -41,9 +41,9 @@ int menuLevel = 0;
 #define LED_PIN     6
 #define COLOR_ORDER RGB
 #define CHIPSET     WS2811
-#define NUM_LEDS    500
-const int numberOfLeds = 500;
-#define WIDTH        10
+#define NUM_LEDS    700
+const int numberOfLeds = 700;
+#define WIDTH        14
 #define SINGLE_STRIP 50
 #define BRIGHTNESS  150
 CRGB leds[NUM_LEDS];
@@ -59,9 +59,9 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisDisplay = 0;
 
 //animation
-#define FIRE_FRAMES_PER_SECOND 8
-#define COOLING  55
-#define SPARKING 120
+#define FIRE_FRAMES_PER_SECOND 14
+#define COOLING  90 //50
+#define SPARKING 80 //120
 //int numberOfFrames = 20;//----------
 //int frameNumber = 1;
 //int numberOfLoops = 0;
@@ -70,8 +70,9 @@ unsigned long previousMillisDisplay = 0;
 
 
 //program vars
-int programNumber = 1;
-int numberOfPrograms = 10;//----------
+int currentProgram = 1;
+
+
 //1-5
 int brightnessSetPoint = 4;
 
@@ -87,11 +88,12 @@ void menuInterrupt();
 void ledTest();
 void playFireFrame();
 void Fire2012(int);
+void ledClear();
 CRGB myHeatColor();
 
 
 void setup() {
-  delay(1000); // sanity delay
+  delay(5000); // sanity delay
   Serial.begin(9600);
   currentMillis = millis();
 
@@ -104,7 +106,7 @@ void setup() {
   Serial.println("initialization done.");
 
   //open file
-  myFile = SD.open("pac.txt");
+  myFile = SD.open("candle.txt");
   if(myFile){
     Serial.println("opened file");
     Serial.println(myFile.name());
@@ -138,8 +140,10 @@ void setup() {
   delay(3000);
   lcd.clear();
 
+  ledClear();
   //RGB test
   //ledTest();
+  
 
 
   //displayProgram();
@@ -225,19 +229,24 @@ void buildFrame(){
       break;
     }
     char tempChar = myFile.peek();
-    while(tempChar == ',' || tempChar == ' ' || tempChar == '[' || tempChar == ']' ){
+    while(tempChar == ',' || tempChar == ' ' || tempChar == '[' || tempChar == ']' || tempChar == '"'){
       myFile.read();
       tempChar = myFile.peek();
       if(myFile.peek() == -1){
         break;
       }
     }
-    myFile.read(buffer1, 8);
-    buffer1[8] = '\0'; // Null-terminate the string
+    myFile.read(buffer, 11);
 
-    // Convert hex string to a color and store in leds array
-    unsigned long hexColor = strtoul(buffer1, NULL, 16);
-    leds[i] = hexColor; // Directly assign the converted color to leds array
+    char r[4] = {buffer[0], buffer[1], buffer[2], '\0'};
+    char g[4] = {buffer[4], buffer[5], buffer[6], '\0'};
+    char b[4] = {buffer[8], buffer[9], buffer[10], '\0'};
+
+    int red = atoi(r);
+    int green = atoi(g);
+    int blue = atoi(b);
+
+    leds[i] = CRGB(red, green, blue);
   }
  
 }
@@ -248,6 +257,18 @@ void runLeds(){
     
   
 }
+
+void ledClear(){
+    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+    lcd.print("Off");
+    for(int i = 0; i < numberOfLeds; i++){
+      leds[i] = 0x000000;
+    }
+    FastLED.show();
+    Serial.println("clear");
+    delay(1000);
+}
+
 
 void ledTest(){
   lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
@@ -300,7 +321,7 @@ void ledTest(){
     for(int i = 0; i < numberOfLeds; i++){
       leds[i] = 0x000000;
     }
-    FastLED.show();
+    //FastLED.show();
     Serial.println("clear");
     delay(3000);
     lcd.clear();
@@ -317,17 +338,22 @@ void menuInterrupt(){
 }
 
 void menuCheck(){
-  if(menuRequest == true){
+  while(menuRequest == true){
+
+    //menu loop
+    //display menue item
+    //check buttons on loop
+
     Serial.println("menu");
     
-  // Print a message on LCD.
-  lcd.clear();
-  lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-  lcd.print("Menu");
-  lcd.setCursor(0,1);   //Move cursor to character 2 on line 1
-  lcd.print("");
-  delay(3000);
-  lcd.clear();
+    // Print a message on LCD.
+    lcd.clear();
+    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
+    lcd.print("Menu");
+    lcd.setCursor(0,1);   //Move cursor to character 2 on line 1
+    lcd.print("");
+    delay(3000);
+    lcd.clear();
 
 
     menuRequest = false;
@@ -339,9 +365,9 @@ void menuCheck(){
 
 void playFireFrame(){
   // Add entropy to random number generator; we use a lot of it.
-  random16_add_entropy( random());
+  
   for(int w = 0; w < WIDTH; w++){
-
+    random16_add_entropy( random());
     Fire2012(w); // run simulation frame
 
   }
