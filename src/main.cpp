@@ -35,7 +35,7 @@ unsigned long lastButtonTime = 0;
 volatile bool menuRequest = false;
 const int menuPin = 2;
 //menue vars
-int menuLevel = 0;
+
 
 //leds
 #define LED_PIN     6
@@ -72,25 +72,22 @@ unsigned long previousMillisDisplay = 0;
 //program vars
 int currentProgram = 1;
 
-
-//1-5
-int brightnessSetPoint = 4;
-
 //pre declare functions
-void displayProgram();
 void checkBtns();
-void runLeds();
+void ledShow();
 void buildFrame();
-void advanceProgram();
-void setBrightness();
+void setBrightness(int);
 void menuCheck();
 void menuInterrupt();
 void ledTest();
 void playFireFrame();
 void Fire2012(int);
 void ledClear();
+int parseRGB(int);
 CRGB myHeatColor();
-
+void lcdWrite(String, String, int); //writes 2 lines then delay till clear. 0 to leave on screen
+void lcdClear();
+void displayMenu();
 
 void setup() {
   delay(5000); // sanity delay
@@ -106,7 +103,7 @@ void setup() {
   Serial.println("initialization done.");
 
   //open file
-  myFile = SD.open("candle.txt");
+  myFile = SD.open("tree2.txt");
   if(myFile){
     Serial.println("opened file");
     Serial.println(myFile.name());
@@ -132,24 +129,11 @@ void setup() {
   lcd.clear();         
   lcd.backlight();    // Make sure backlight is on
 
-  // Print a message on both lines of the LCD.
-  lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-  lcd.print("Mega");
-  lcd.setCursor(0,1);   //Move cursor to character 2 on line 1
-  lcd.print("Matrix");
-  delay(3000);
-  lcd.clear();
+  lcdWrite("Mega", "Matrix", 1000);
+  lcdWrite("Mega", "Matrix", 1000);
+  lcdWrite("Mega", "Matrix", 1000);
 
   ledClear();
-  //RGB test
-  //ledTest();
-  
-
-
-  //displayProgram();
-
-  
-  
 }
 
 void loop(){
@@ -161,112 +145,106 @@ void loop(){
   menuCheck();
   //playFireFrame();
   buildFrame();
-  runLeds();
   //advanceProgram();//---------
  
 }
 
-void setBrightness(){
-switch (brightnessSetPoint)
-{
-case 1:
-  FastLED.setBrightness(50);
-  break;
-case 2:
-  FastLED.setBrightness(100);
-  break;
-case 3:
-  FastLED.setBrightness(150);
-  break;
-case 4:
-  FastLED.setBrightness(180);
-  break;
-case 5:
-  FastLED.setBrightness(200);
-  break;
-default:
-  FastLED.setBrightness(150);
-  break;
-}
-lcd.setCursor(0,0);
-lcd.print("Brightness: ");
-lcd.print(brightnessSetPoint);
 
-}
 
-void checkBtns(){
-  button1State = digitalRead(btn1Pin);
+//void checkBtns(){
+  //button1State = digitalRead(btn1Pin);
   //Serial.println("check,,,,,,,,,,,,,,,");
   //debounce
-  unsigned long currentTime = millis();
+  //unsigned long currentTime = millis();
 
-  if (button1State == HIGH){
-    if (lastButtonTime < currentTime - 200){
-      brightnessSetPoint++;
-      if(brightnessSetPoint > 5){
-        brightnessSetPoint = 1;
-      }
-      setBrightness();
+  //if (button1State == HIGH){
+    //if (lastButtonTime < currentTime - 200){
+      
+      //}
+      
 
-      lastButtonTime = currentTime;
-    }
+      //lastButtonTime = currentTime;
+    //}
+  //}
+
+//}
+
+//dealy of 0 to keep on screen
+void lcdWrite(String line1, String line2, int showDelay){
+  lcdClear();
+  int textLength;
+  const char* cLine1 = line1.c_str();
+  const char* cLine2 = line2.c_str();
+  int length1 = strlen(cLine1);
+  int length2 = strlen(cLine2);
+  if(length1 > length2){
+    textLength = length1;
+  }else{
+    textLength = length2;
   }
-
+  for(int i = 0; i < textLength; i++){
+    if(i < length1){
+      lcd.setCursor(i,0);
+      lcd.print(cLine1[i]);
+    }
+    if(i < length2){
+      lcd.setCursor(i,1);
+      lcd.print(cLine2[i]);
+    }
+    delay(60);
+  }
+  if(showDelay > 0){
+    delay(showDelay);
+    lcdClear();
+  }
 }
 
-
-void displayProgram(){
-  
-}
-
-void hexStringToLong(String recv){
-  
+void lcdClear(){
+  for(int i = 15; i > -1; i--){
+    lcd.setCursor(i,0); 
+    lcd.print(" ");
+    lcd.setCursor(i,1);
+    lcd.print(" ");
+    delay(60);
+  }
 }
 
 void buildFrame(){
-  for(int i=0; i<NUM_LEDS; i++){
-    if(myFile.peek() == -1){
-      break;
-    }
-    char tempChar = myFile.peek();
-    while(tempChar == ',' || tempChar == ' ' || tempChar == '[' || tempChar == ']' || tempChar == '"'){
-      myFile.read();
-      tempChar = myFile.peek();
-      if(myFile.peek() == -1){
-        break;
-      }
-    }
+    char tempChar;
+    for(int i=0; i<NUM_LEDS; i++){
+      do {
+        if(myFile.peek() == -1){
+          return;
+        } 
+        tempChar = myFile.read();
+      } while(tempChar == ',' || tempChar == ' ' || tempChar == '[' || tempChar == ']' || tempChar == '"');
     myFile.read(buffer, 11);
-
-    char r[4] = {buffer[0], buffer[1], buffer[2], '\0'};
-    char g[4] = {buffer[4], buffer[5], buffer[6], '\0'};
-    char b[4] = {buffer[8], buffer[9], buffer[10], '\0'};
-
-    int red = atoi(r);
-    int green = atoi(g);
-    int blue = atoi(b);
-
+    int red = parseRGB(0);
+    int green = parseRGB(4);
+    int blue = parseRGB(8);
     leds[i] = CRGB(red, green, blue);
   }
- 
+  ledShow();
 }
 
-void runLeds(){
-  
+int parseRGB(int startIndex){
+  char colorValue[4];
+  strncpy(colorValue, buffer + startIndex, 3);
+  return atoi(colorValue);
+}
+
+void ledShow(){
         FastLED.show();
-    
-  
 }
 
 void ledClear(){
     lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Off");
+    lcd.print("Clear");
     for(int i = 0; i < numberOfLeds; i++){
       leds[i] = 0x000000;
     }
     FastLED.show();
-    Serial.println("clear");
-    delay(1000);
+    lcdWrite("Clear", "LEDs", 1500);
 }
 
 
@@ -328,41 +306,125 @@ void ledTest(){
   }
 }
 
-void advanceProgram(){//--------
-
-  
-}
-
 void menuInterrupt(){
   menuRequest = true;
 }
 
 void menuCheck(){
+  int mainMenuLocation = 1;
+  int mainMenuSelection = 0;
   while(menuRequest == true){
-
-    //menu loop
-    //display menue item
-    //check buttons on loop
-
-    Serial.println("menu");
+    lcdWrite("Menu", "", 1000);
+    displayMenu(mainMenuLocation);
+    //int buttonType = buttonCheck();
+    //if(buttonType != 0){
+      //buttonLogic(buttonType, mainMenuLocation, mainMenuSelection);
+    //}
     
-    // Print a message on LCD.
-    lcd.clear();
-    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Menu");
-    lcd.setCursor(0,1);   //Move cursor to character 2 on line 1
-    lcd.print("");
-    delay(3000);
-    lcd.clear();
-
-
     menuRequest = false;
   }
 }
 
+struct MenuItem
+{
+  String name1;
+  String name2;
+};
+
+MenuItem mainMenu[] = {
+  {"Stataic", "Displays"},
+  {"Select", "Program"},
+  {"Set", "Brightness"},
+  {"Test", "LEDs"}
+};
+
+
+void displayMenu(int mainMenuLocation){
+  
+  switch (mainMenuLocation)
+  {
+  case 1:
+      lcdWrite("Static", "Displays", 0);
+        break;
+  case 2:
+      lcdWrite("Sleect", "Program", 0);
+        break;
+  case 3:
+      lcdWrite("Set", "Brightness", 0);
+        break;
+  case 4:
+      lcdWrite("Test", "Leds", 0);
+        break;            
+  default:
+    break;
+  }
+
+}
+
+void buttonLogic(int whatButton, int currentMainMenue, int newMainMenu){
+  switch (whatButton)
+  {
+  case 1:
+    //enter
+    //menuLogic(currentMainMenue);
+    break;
+  case 2:
+    //up
+    newMainMenu --;
+    break;
+  case 3:
+    //down
+    newMainMenu ++;
+    break;
+  default:
+    break;
+  }
+}
+
+void brightnessMenu(){
+
+}
+
+void staticMenu(){
+    // Action for Menu Item 1
+}
+
+void programMenu(){
+    // Action for Menu Item 2
+}
+
+//1-5
+void setBrightness(int brightness){
+  switch (brightness)
+  {
+  case 1:
+    FastLED.setBrightness(50);
+    break;
+  case 2:
+    FastLED.setBrightness(100);
+    break;
+  case 3:
+    FastLED.setBrightness(150);
+    break;
+  case 4:
+    FastLED.setBrightness(180);
+    break;
+  case 5:
+    FastLED.setBrightness(200);
+    break;
+  default:
+    FastLED.setBrightness(150);
+    break;
+  }
+}
+
+
+
+
+
+
 
 //for fire
-
 void playFireFrame(){
   // Add entropy to random number generator; we use a lot of it.
   
