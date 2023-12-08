@@ -59,9 +59,10 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisDisplay = 0;
 
 //animation
-#define FIRE_FRAMES_PER_SECOND 14
+#define FIRE_FRAMES_PER_SECOND 10
 #define COOLING  90 //50
 #define SPARKING 80 //120
+int codePlayFrames = 100;
 //int numberOfFrames = 20;//----------
 //int frameNumber = 1;
 //int numberOfLoops = 0;
@@ -71,6 +72,8 @@ unsigned long previousMillisDisplay = 0;
 
 //program vars
 int currentProgram = 1;
+bool nextProgramFlag = false;
+bool playCode = false;
 
 //pre declare functions
 void checkBtns();
@@ -87,7 +90,10 @@ int parseRGB(int);
 CRGB myHeatColor();
 void lcdWrite(String, String, int); //writes 2 lines then delay till clear. 0 to leave on screen
 void lcdClear();
-void displayMenu();
+void displayMenu(int);
+void loadNextfile();
+void printDirectory(File, int);
+//void playProgram(int);
 
 void setup() {
   delay(5000); // sanity delay
@@ -102,15 +108,22 @@ void setup() {
   }
   Serial.println("initialization done.");
 
-  //open file
-  myFile = SD.open("tree2.txt");
-  if(myFile){
-    Serial.println("opened file");
-    Serial.println(myFile.name());
+  root = SD.open("/programs");
+  if (!root) {
+  Serial.println("Failed to open /programs directory");
+  return;
   } else {
-    // if the file didn't open, print an error:
-    Serial.println("error opening file");
+  Serial.println("/programs directory opened");
   }
+  myFile = root.openNextFile();
+  if (!myFile) {
+  Serial.println("Failed to open the first file in the directory");
+  } else {
+  Serial.println("First file opened successfully");
+  Serial.print("File name: ");
+  Serial.println(myFile.name());
+  }
+
 
   //buttons
   //pinMode(btn1Pin, INPUT);
@@ -121,53 +134,60 @@ void setup() {
   FastLED.addLeds<CHIPSET, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
   FastLED.setBrightness( BRIGHTNESS );
 
-  //animations
-  
-
   //start lcd
   lcd.init();
   lcd.clear();         
   lcd.backlight();    // Make sure backlight is on
 
   lcdWrite("Mega", "Matrix", 1000);
-  lcdWrite("Mega", "Matrix", 1000);
-  lcdWrite("Mega", "Matrix", 1000);
-
+  //ledTest();
   ledClear();
 }
 
 void loop(){
   //time and delays
   //currentMillis = millis();
-
+  
   //Serial.println(programNumber);
   //checkBtns();
   menuCheck();
-  //playFireFrame();
-  buildFrame();
-  //advanceProgram();//---------
+  if(nextProgramFlag){
+    myFile = root.openNextFile();
+    if(!myFile){
+      playCode = true;
+      root.rewindDirectory();
+      myFile = root.openNextFile();
+    }
+    nextProgramFlag = false;
+    delay(1000);
+  }
+
+  if(playCode){
+    for(int i=0; i<codePlayFrames; i++){
+      playFireFrame();
+    }
+    playCode = false;
+  }else{
+    buildFrame();
+  }
  
 }
 
+void loadNextFile(){
+  //if()
 
 
-//void checkBtns(){
-  //button1State = digitalRead(btn1Pin);
-  //Serial.println("check,,,,,,,,,,,,,,,");
-  //debounce
-  //unsigned long currentTime = millis();
+  myFile = SD.open("tree2.txt");
+  if(myFile){
+    Serial.println("opened file");
+    Serial.println(myFile.name());
+  } else {
+    // if the file didn't open, print an error:
+    Serial.println("error opening file");
+  }
 
-  //if (button1State == HIGH){
-    //if (lastButtonTime < currentTime - 200){
-      
-      //}
-      
+}
 
-      //lastButtonTime = currentTime;
-    //}
-  //}
-
-//}
 
 //dealy of 0 to keep on screen
 void lcdWrite(String line1, String line2, int showDelay){
@@ -214,6 +234,7 @@ void buildFrame(){
     for(int i=0; i<NUM_LEDS; i++){
       do {
         if(myFile.peek() == -1){
+          nextProgramFlag = true;
           return;
         } 
         tempChar = myFile.read();
@@ -238,71 +259,52 @@ void ledShow(){
 }
 
 void ledClear(){
-    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Clear");
-    for(int i = 0; i < numberOfLeds; i++){
-      leds[i] = 0x000000;
-    }
-    FastLED.show();
-    lcdWrite("Clear", "LEDs", 1500);
+  for(int i = 0; i < numberOfLeds; i++){
+    leds[i] = 0x000000;
+  }
+  FastLED.show();
+  lcdWrite("Clear", "LEDs", 1500);
 }
 
-
 void ledTest(){
-  lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-  lcd.print("RGB Check");
-  delay(2500);
-  lcd.clear();
+  lcdWrite("RGB", "Check", 2000);
   for (int i = 0; i < 1; i++) {
-    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Off");
+    lcdWrite("Black", "", 0);
     for(int i = 0; i < numberOfLeds; i++){
       leds[i] = 0x000000;
     }
     FastLED.show();
     Serial.println("clear");
     delay(1000);
-
-    lcd.clear();
-    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Red");
+    lcdWrite("Red", "", 0);
     for(int i = 0; i < numberOfLeds; i++){
       //fire brick
       leds[i] = 0xB22222;
     }
     FastLED.show();
     delay(3000);
-
-    lcd.clear();
-    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Green");
+    lcdWrite("Green", "", 0);
     for(int i = 0; i < numberOfLeds; i++){
       //lime green
       leds[i] = 0x32CD32;
     }
     FastLED.show();
     delay(3000);
-
-    lcd.clear();
-    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Blue");
+    lcdWrite("Blue", "", 0);
     for(int i = 0; i < numberOfLeds; i++){
       //medium blue
       leds[i] = 0x0000CD;
     }
     FastLED.show();
     delay(3000);
-
-    lcd.clear();
-    lcd.setCursor(0,0);   //Set cursor to character 2 on line 0
-    lcd.print("Off");
+    lcdWrite("Black", "", 0);
     for(int i = 0; i < numberOfLeds; i++){
       leds[i] = 0x000000;
     }
     //FastLED.show();
     Serial.println("clear");
     delay(3000);
-    lcd.clear();
+    lcdClear();
   }
 }
 
@@ -315,7 +317,7 @@ void menuCheck(){
   int mainMenuSelection = 0;
   while(menuRequest == true){
     lcdWrite("Menu", "", 1000);
-    displayMenu(mainMenuLocation);
+    //displayMenu(mainMenuLocation);
     //int buttonType = buttonCheck();
     //if(buttonType != 0){
       //buttonLogic(buttonType, mainMenuLocation, mainMenuSelection);
@@ -417,10 +419,6 @@ void setBrightness(int brightness){
     break;
   }
 }
-
-
-
-
 
 
 
