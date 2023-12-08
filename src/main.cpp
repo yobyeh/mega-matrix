@@ -59,10 +59,18 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisDisplay = 0;
 
 //animation
+int codePlayFrames = 800;
+//fire
 #define FIRE_FRAMES_PER_SECOND 10
 #define COOLING  90 //50
 #define SPARKING 80 //120
-int codePlayFrames = 100;
+//star
+int count = 0; 
+int countStart = 0;
+bool newStar = false;
+//unsigned long starWaitTime = 0;
+//unsigned long currentStarWait = 0;
+
 //int numberOfFrames = 20;//----------
 //int frameNumber = 1;
 //int numberOfLoops = 0;
@@ -73,7 +81,7 @@ int codePlayFrames = 100;
 //program vars
 int currentProgram = 1;
 bool nextProgramFlag = false;
-bool playCode = false;
+bool playCode = true;
 
 //pre declare functions
 void checkBtns();
@@ -93,7 +101,59 @@ void lcdClear();
 void displayMenu(int);
 void loadNextfile();
 void printDirectory(File, int);
+void shootingStarAnimation(int, int, int, int, int, int);
+void runStars();
+
 //void playProgram(int);
+
+//balls
+void BouncingColoredBalls(int BallCount, byte colors[][3]) {
+  float Gravity = -9.81;
+  int StartHeight = 1;
+ 
+  float Height[BallCount];
+  float ImpactVelocityStart = sqrt( -2 * Gravity * StartHeight );
+  float ImpactVelocity[BallCount];
+  float TimeSinceLastBounce[BallCount];
+  int   Position[BallCount];
+  long  ClockTimeSinceLastBounce[BallCount];
+  float Dampening[BallCount];
+ 
+  for (int i = 0 ; i < BallCount ; i++) {  
+    ClockTimeSinceLastBounce[i] = millis();
+    Height[i] = StartHeight;
+    Position[i] = 0;
+    ImpactVelocity[i] = ImpactVelocityStart;
+    TimeSinceLastBounce[i] = 0;
+    Dampening[i] = 0.90 - float(i)/pow(BallCount,2);
+  }
+
+  while (true) {
+    for (int i = 0 ; i < BallCount ; i++) {
+      TimeSinceLastBounce[i] =  millis() - ClockTimeSinceLastBounce[i];
+      Height[i] = 0.5 * Gravity * pow( TimeSinceLastBounce[i]/1000 , 2.0 ) + ImpactVelocity[i] * TimeSinceLastBounce[i]/1000;
+ 
+      if ( Height[i] < 0 ) {                      
+        Height[i] = 0;
+        ImpactVelocity[i] = Dampening[i] * ImpactVelocity[i];
+        ClockTimeSinceLastBounce[i] = millis();
+ 
+        if ( ImpactVelocity[i] < 0.01 ) {
+          ImpactVelocity[i] = ImpactVelocityStart;
+        }
+      }
+      Position[i] = round( Height[i] * (NUM_LEDS - 1) / StartHeight);
+    }
+ 
+    for (int i = 0 ; i < BallCount ; i++) {
+      //leds[i] = CRGB(red, green, blue);
+      leds[Position[i]] = CRGB(colors[i][0],colors[i][1],colors[i][2]);
+    }
+   
+    FastLED.show();
+    ledClear();
+  }
+}
 
 void setup() {
   delay(5000); // sanity delay
@@ -155,6 +215,7 @@ void loop(){
     myFile = root.openNextFile();
     if(!myFile){
       playCode = true;
+      setBrightness(2);
       root.rewindDirectory();
       myFile = root.openNextFile();
     }
@@ -164,9 +225,20 @@ void loop(){
 
   if(playCode){
     for(int i=0; i<codePlayFrames; i++){
-      playFireFrame();
+      //playFireFrame();
+       // A simple White Shooting Star
+      //runStars();
+      byte colors[3][3] = { {0xff, 0,0},
+                        {0xff, 0xff, 0xff},
+                        {0   , 0   , 0xff} };
+
+      bouncingColoredBalls(3, colors);
+      
+      // Try changing the arguments. Uncomment this line of code to try out a fully randomized animation example:
+      //shootingStarAnimation(random(0, 255), random(0, 255), random(0, 255), random(10, 60), random(5, 40), random(2000, 8000), 1);
     }
     playCode = false;
+    setBrightness(3);
   }else{
     buildFrame();
   }
@@ -422,7 +494,48 @@ void setBrightness(int brightness){
 
 
 
-//for fire
+
+//shooting star
+void runStars(){
+  shootingStarAnimation(255, 255, 255, random(60, 80), random(5, 40), 1);
+}
+
+void shootingStarAnimation(int red, int green, int blue, int tail_length, int delay_duration, int direction){
+  /*
+   * red - 0 to 255 red color value
+   * green - 0 to 255 green color value
+   * blue - 0 to 255 blue color value
+   * tail_length - value which represents number of pixels used in the tail following the shooting star
+   * delay_duration - value to set animation speed. Higher value results in slower animation speed.
+   * interval - time between each shooting star (in miliseconds)
+   * direction - value which changes the way that the pixels travel (uses -1 for reverse, any other number for forward)
+  */
+  //unsigned long currentMillis = millis();   // Get the time
+  if (countStart + 50 <= count) {
+    //previousMillis = currentMillis;         // Save the last time the LEDs were updated
+    count = 0 + (random(0, 14)*50);         // Reset the count to 0 after each interval
+    countStart = count;
+  }
+  if (direction == -1) {        // Reverse direction option for LEDs
+    if (count < NUM_LEDS) {
+      leds[NUM_LEDS - (count % (NUM_LEDS+1))].setRGB(red, green, blue);    // Set LEDs with the color value
+      count++;
+    }
+  }
+  else {
+    if (count < NUM_LEDS) {     // Forward direction option for LEDs
+      leds[count % (NUM_LEDS+1)].setRGB(red, green, blue);    // Set LEDs with the color value
+      count++;
+    }
+  }
+  fadeToBlackBy(leds, NUM_LEDS, tail_length);                 // Fade the tail LEDs to black
+  FastLED.show();
+  delay(delay_duration);                                      // Delay to set the speed of the animation
+}
+
+
+
+//fire
 void playFireFrame(){
   // Add entropy to random number generator; we use a lot of it.
   
