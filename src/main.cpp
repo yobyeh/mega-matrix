@@ -59,7 +59,8 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisDisplay = 0;
 
 //animation
-int codePlayFrames = 800;
+int codePlayFrames = 1000;
+int codeToPlay = 0;
 //fire
 #define FIRE_FRAMES_PER_SECOND 10
 #define COOLING  90 //50
@@ -68,6 +69,11 @@ int codePlayFrames = 800;
 int count = 0; 
 int countStart = 0;
 bool newStar = false;
+//balls
+byte colors[3][3] = { {0xff, 0,0},
+                        {0xff, 0xff, 0xff},
+                        {0, 0xdd, 0} };
+
 //unsigned long starWaitTime = 0;
 //unsigned long currentStarWait = 0;
 
@@ -165,6 +171,7 @@ void loop(){
   menuCheck();
   if(nextProgramFlag){
     myFile = root.openNextFile();
+    setBrightness(3);
     if(!myFile){
       playCode = true;
       setBrightness(2);
@@ -177,20 +184,33 @@ void loop(){
 
   if(playCode){
     for(int i=0; i<codePlayFrames; i++){
-      //playFireFrame();
-       // A simple White Shooting Star
-      //runStars();
-      byte colors[3][3] = { {0xff, 0,0},
-                        {0xff, 0xff, 0xff},
-                        {0, 0xdd, 0} };
-
-      bouncingColoredBalls(3, colors);
-      
-      // Try changing the arguments. Uncomment this line of code to try out a fully randomized animation example:
-      //shootingStarAnimation(random(0, 255), random(0, 255), random(0, 255), random(10, 60), random(5, 40), random(2000, 8000), 1);
+      switch (codeToPlay)
+      {
+      case 0:
+        runStars();
+        break;
+      case 1:
+        if(i==0){
+          FastLED.setBrightness(70);
+        }
+        playFireFrame();
+        i = i + 2;
+        break;
+      case 2:
+        if(i==0){
+          FastLED.setBrightness(120);
+        }
+        bouncingColoredBalls(3, colors);
+        i = codePlayFrames;                
+        break;
+      default:
+        codeToPlay = -1;
+        playCode = false;
+        FastLED.setBrightness(150);
+        break;
+      }
     }
-    playCode = false;
-    setBrightness(3);
+    codeToPlay ++;
   }else{
     buildFrame();
   }
@@ -337,16 +357,15 @@ void menuInterrupt(){
 }
 
 void menuCheck(){
-  int mainMenuLocation = 1;
-  int mainMenuSelection = 0;
+  //int mainMenuLocation = 1;
+  //int mainMenuSelection = 0;
   while(menuRequest == true){
-    lcdWrite("Menu", "", 1000);
+    ledTest();
     //displayMenu(mainMenuLocation);
     //int buttonType = buttonCheck();
     //if(buttonType != 0){
       //buttonLogic(buttonType, mainMenuLocation, mainMenuSelection);
     //}
-    
     menuRequest = false;
   }
 }
@@ -448,7 +467,7 @@ void setBrightness(int brightness){
 //balls
 void bouncingColoredBalls(int BallCount, byte colors[][3]) {
   float Gravity = -9.81;
-  int StartHeight = 300;
+  int StartHeight = 20;
  
   float Height[BallCount];
   float ImpactVelocityStart = sqrt( -2 * Gravity * StartHeight );
@@ -467,7 +486,7 @@ void bouncingColoredBalls(int BallCount, byte colors[][3]) {
     Dampening[i] = 0.90 - float(i)/pow(BallCount,2);
   }
 
-  while (true) {
+   for(int j=0; j<1000; j++) {
     for (int i = 0 ; i < BallCount ; i++) {
       TimeSinceLastBounce[i] =  millis() - ClockTimeSinceLastBounce[i];
       Height[i] = 0.5 * Gravity * pow( TimeSinceLastBounce[i]/1000 , 2.0 ) + ImpactVelocity[i] * TimeSinceLastBounce[i]/1000;
@@ -481,7 +500,7 @@ void bouncingColoredBalls(int BallCount, byte colors[][3]) {
           ImpactVelocity[i] = ImpactVelocityStart;
         }
       }
-      Position[i] = round( Height[i] * ((NUM_LEDS - 1)) / StartHeight);
+      Position[i] = (round( Height[i] * (((NUM_LEDS - 651))) / StartHeight))+300;
     }
  
     for (int i = 0 ; i < BallCount ; i++) {
