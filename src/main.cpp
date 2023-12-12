@@ -5,22 +5,11 @@
 #include <SD.h>
 #include <Wire.h>
 
-//TODO
-//types of signal zigzag
-//dynamic file names
-//code based colors
-//menues
-//buttons
-//comments
-//cleanup
-
-
 //SD card
 File myFile;
 File root;
 const int chipSelect = 53;
 char buffer[11];
-
 
 //LCD
 // set the LCD address to 0x3F for a 16 chars and 2 line display
@@ -36,7 +25,6 @@ volatile bool menuRequest = false;
 const int menuPin = 2;
 //menue vars
 
-
 //leds
 #define LED_PIN     6
 #define COLOR_ORDER RGB
@@ -49,8 +37,6 @@ const int numberOfLeds = 700;
 CRGB leds[NUM_LEDS];
 int frame = 0;
 bool flip = false;
-//signal wiring shape?
-
 
 //delays
 unsigned long currentMillis = 0;
@@ -59,7 +45,7 @@ unsigned long previousMillis = 0;
 unsigned long previousMillisDisplay = 0;
 
 //animation
-int codePlayFrames = 1000;
+int codePlayFrames = 800;
 int codeToPlay = 0;
 //fire
 #define FIRE_FRAMES_PER_SECOND 10
@@ -70,24 +56,16 @@ int count = 0;
 int countStart = 0;
 bool newStar = false;
 //balls
-byte colors[3][3] = { {0xff, 0,0},
-                        {0xff, 0xff, 0xff},
-                        {0, 0xdd, 0} };
-
-//unsigned long starWaitTime = 0;
-//unsigned long currentStarWait = 0;
-
-//int numberOfFrames = 20;//----------
-//int frameNumber = 1;
-//int numberOfLoops = 0;
-//bool frameDisplayed = true;
-//bool frameBuffered = false;
-
+byte colors[3][3] = { 
+  {0xff, 0,0},
+  {0xff, 0xff, 0xff},
+  {0, 0xdd, 0}
+};
 
 //program vars
 int currentProgram = 1;
 bool nextProgramFlag = false;
-bool playCode = true;
+bool playCode = false;
 
 //pre declare functions
 void checkBtns();
@@ -111,7 +89,12 @@ void shootingStarAnimation(int, int, int, int, int, int);
 void runStars();
 void bouncingColoredBalls(int BallCount, byte colors[][3]);
 
-//void playProgram(int);
+// Function to calculate free RAM
+int freeMemory() {
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int)&v - (__brkval == 0 ? (int)&__heap_start : (int)__brkval);
+}
 
 void setup() {
   delay(5000); // sanity delay
@@ -165,11 +148,13 @@ void setup() {
 void loop(){
   //time and delays
   //currentMillis = millis();
-  
-  //Serial.println(programNumber);
-  //checkBtns();
+
+  //Serial.print(freeMemory());
+  //Serial.print("---");
+
   menuCheck();
   if(nextProgramFlag){
+    myFile.close();
     myFile = root.openNextFile();
     setBrightness(3);
     if(!myFile){
@@ -187,10 +172,14 @@ void loop(){
       switch (codeToPlay)
       {
       case 0:
+        if(i==0){
+          lcdWrite("Shooting", "Stars", 0);
+        }
         runStars();
         break;
       case 1:
         if(i==0){
+          lcdWrite("Fire", "", 0);
           FastLED.setBrightness(70);
         }
         playFireFrame();
@@ -198,6 +187,7 @@ void loop(){
         break;
       case 2:
         if(i==0){
+          lcdWrite("Bouncing", "Balls", 0);
           FastLED.setBrightness(120);
         }
         bouncingColoredBalls(3, colors);
@@ -205,8 +195,10 @@ void loop(){
         break;
       default:
         codeToPlay = -1;
-        playCode = false;
+        lcdWrite("Playing", "Files", 0);
         FastLED.setBrightness(150);
+        playCode = false;
+        i = codePlayFrames; 
         break;
       }
     }
@@ -217,21 +209,16 @@ void loop(){
  
 }
 
-void loadNextFile(){
-  //if()
-
-
-  myFile = SD.open("tree2.txt");
-  if(myFile){
-    Serial.println("opened file");
-    Serial.println(myFile.name());
-  } else {
-    // if the file didn't open, print an error:
-    Serial.println("error opening file");
-  }
-
-}
-
+// void loadNextFile(){
+//   myFile = SD.open("tree2.txt");
+//   if(myFile){
+//     Serial.println("opened file");
+//     Serial.println(myFile.name());
+//   } else {
+//     // if the file didn't open, print an error:
+//     Serial.println("error opening file");
+//   }
+// }
 
 //dealy of 0 to keep on screen
 void lcdWrite(String line1, String line2, int showDelay){
@@ -307,7 +294,6 @@ void ledClear(){
     leds[i] = 0x000000;
   }
   FastLED.show();
-  //lcdWrite("Clear", "LEDs", 1500);
 }
 
 void ledTest(){
@@ -357,15 +343,8 @@ void menuInterrupt(){
 }
 
 void menuCheck(){
-  //int mainMenuLocation = 1;
-  //int mainMenuSelection = 0;
   while(menuRequest == true){
     ledTest();
-    //displayMenu(mainMenuLocation);
-    //int buttonType = buttonCheck();
-    //if(buttonType != 0){
-      //buttonLogic(buttonType, mainMenuLocation, mainMenuSelection);
-    //}
     menuRequest = false;
   }
 }
@@ -383,9 +362,7 @@ MenuItem mainMenu[] = {
   {"Test", "LEDs"}
 };
 
-
 void displayMenu(int mainMenuLocation){
-  
   switch (mainMenuLocation)
   {
   case 1:
@@ -406,37 +383,25 @@ void displayMenu(int mainMenuLocation){
 
 }
 
-void buttonLogic(int whatButton, int currentMainMenue, int newMainMenu){
-  switch (whatButton)
-  {
-  case 1:
-    //enter
-    //menuLogic(currentMainMenue);
-    break;
-  case 2:
-    //up
-    newMainMenu --;
-    break;
-  case 3:
-    //down
-    newMainMenu ++;
-    break;
-  default:
-    break;
-  }
-}
-
-void brightnessMenu(){
-
-}
-
-void staticMenu(){
-    // Action for Menu Item 1
-}
-
-void programMenu(){
-    // Action for Menu Item 2
-}
+// void buttonLogic(int whatButton, int currentMainMenue, int newMainMenu){
+//   switch (whatButton)
+//   {
+//   case 1:
+//     //enter
+//     //menuLogic(currentMainMenue);
+//     break;
+//   case 2:
+//     //up
+//     newMainMenu --;
+//     break;
+//   case 3:
+//     //down
+//     newMainMenu ++;
+//     break;
+//   default:
+//     break;
+//   }
+// }
 
 //1-5
 void setBrightness(int brightness){
@@ -487,6 +452,7 @@ void bouncingColoredBalls(int BallCount, byte colors[][3]) {
   }
 
    for(int j=0; j<1000; j++) {
+    menuCheck();
     for (int i = 0 ; i < BallCount ; i++) {
       TimeSinceLastBounce[i] =  millis() - ClockTimeSinceLastBounce[i];
       Height[i] = 0.5 * Gravity * pow( TimeSinceLastBounce[i]/1000 , 2.0 ) + ImpactVelocity[i] * TimeSinceLastBounce[i]/1000;
